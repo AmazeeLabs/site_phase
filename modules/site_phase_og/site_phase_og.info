@@ -1,0 +1,7 @@
+name = Site Phase OG
+description = OG integration for the Site Phase module. Exposes the OG permissions to be saved as state for site phases.
+core = 7.x
+dependencies[] = site_phase
+dependencies[] = og
+
+files[] = classes/SiteStateOGPermPlugin.inc

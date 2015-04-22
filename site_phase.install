@@ -1,0 +1,104 @@
+<?php
+
+/**
+ * @file
+ *  Install file of the module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function site_phase_schema() {
+  $schema['site_phases'] = array(
+    'description' => 'Store the available site phases.',
+    'fields' => array(
+      'spid' => array(
+        'description' => 'The primary identifier for a phase.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'machine_name' => array(
+        'description' => 'The machine name of the phase.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'name' => array(
+        'description' => 'The human readble name of the phase.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'description' => array(
+        'description' => 'A description of the phase.',
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'medium',
+        'translatable' => TRUE,
+      ),
+      'weight' => array(
+        'description' => 'The weight of the phase.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'is_locked' => array(
+        'description' => 'If the phase can be edited or deleted.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'is_default' => array(
+        'description' => 'If this phase is the default phase of the site.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('spid'),
+    'unique keys' => array('machine_name' => array('machine_name'))
+  );
+
+  $schema['site_phases_states'] = array(
+    'description' => 'Store the states of site phases.',
+    'fields' => array(
+      'phase_machine_name' => array(
+        'description' => 'The machine name of the phase.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'states' => array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'Stores the various states of the components for this phase',
+      ),
+    ),
+    'primary key' => array('phase_machine_name'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function site_phase_install() {
+  // Insert the default state of the site.
+  $default_state = (object) array(
+    'machine_name' => 'default',
+    'name' => 'Default',
+    'description' => 'Default phase of the the site',
+    'weight' => -10,
+    // Make this the default state and lock it.
+    'is_locked' => 1,
+    'is_default' => 1
+  );
+  drupal_write_record('site_phases', $default_state);
+}

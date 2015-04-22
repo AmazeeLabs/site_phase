@@ -1,0 +1,7 @@
+name = Site Phase
+description = Lets the administrator of the site to define different phases in which a site can be, and these configurations can have different site settings.
+core = 7.x
+
+files[] = interfaces/SiteStatePluginInterface.inc
+files[] = classes/SiteStatePluginFactory.inc
+files[] = classes/SiteStateUserPermPlugin.inc

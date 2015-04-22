@@ -1,0 +1,16 @@
+<?php
+
+/**
+ * @file
+ *  OG integration for the Site Phase module.
+ */
+
+function site_phase_og_site_phase_state_plugins() {
+  return array(
+    'og_perm' => array(
+      'class' => 'SiteStateOGPermPlugin',
+      'name' => 'OG permissions',
+      'description' => 'State plugin for the current OG permissions on the site.'
+    ),
+  );
+}
