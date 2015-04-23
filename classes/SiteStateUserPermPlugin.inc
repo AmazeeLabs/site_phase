@@ -8,14 +8,12 @@
 /**
  * Site state plugin class for the core permissions.
  */
-class SiteStateUserPermPlugin implements SiteStatePluginInterface {
+class SiteStateUserPermPlugin extends SiteStateBasePlugin {
 
-  public function retrieveCurrentState() {
-    // We retrieve the entire role_permission table.
-    $query = db_select('role_permission', 'rp')->fields('rp');
-    return $query->execute()->fetchAll();
-  }
-
+  /**
+   * (non-PHPdoc)
+   * @see SiteStatePluginInterface::applyState()
+   */
   public function applyState($state) {
     // When we apply a state, we basically replace the entire role_permission
     // table.
@@ -34,5 +32,47 @@ class SiteStateUserPermPlugin implements SiteStatePluginInterface {
     catch (Exception $e) {
       $transaction->rollback();
     }
+  }
+
+  /**
+   * (non-PHPdoc)
+   * @see SiteStatePluginInterface::configurationForm()
+   */
+  public function configurationForm($state = NULL) {
+    module_load_include('inc', 'user', 'user.admin');
+    $form = array();
+    $form_state = array();
+    $form = user_admin_permissions($form, $form_state);
+    // Hack for the login toboggan: the module will alter the user.permissions.js
+    // but if logintoboggan_form_user_admin_permissions_alter() is not called,
+    // it will generated an error in javascript.
+    if (function_exists('logintoboggan_form_user_admin_permissions_alter')) {
+      logintoboggan_form_user_admin_permissions_alter($form, $form_state);
+    }
+    unset($form['actions']);
+    $form['#theme'] = 'user_admin_permissions';
+
+    // Set the default value according to the data from the state.
+    foreach ($form['checkboxes'] as $rid => &$chekbox) {
+      // If we have absolutely no information for a role in the state, then we
+      // can just skip it.
+      if (!isset($state->state[$rid])) {
+        continue;
+      }
+      $form['checkboxes'][$rid]['#default_value'] = $state->state[$rid];
+    }
+    return $form;
+  }
+
+  /**
+   * (non-PHPdoc)
+   * @see SiteStatePluginInterface::getStateFromSubmission()
+   */
+  public function getStateFromSubmission(&$form, &$form_state) {
+    $state = array();
+    foreach ($form_state['values']['role_names'] as $rid => $name) {
+      $state[$rid] = array_filter($form_state['values'][$rid]);
+    }
+    return $state;
   }
 }

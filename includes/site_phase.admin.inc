@@ -110,9 +110,8 @@ function site_phase_admin_form($form, &$form_state, $phases) {
       $actions[] = l(t('delete'), site_phase_get_delete_path($phase->spid), array('query' => $destination));
     }
     // Disabled for now. Could be removed or refactored in the future.
-    //$actions[] = l(t('configure'), site_phase_get_configure_path($phase->spid), array('query' => $destination));
+    $actions[] = l(t('configure'), site_phase_get_configure_path($phase->spid), array('query' => $destination));
     $actions[] = l(t('activate'), site_phase_get_activate_path($phase->spid), array('query' => $destination));
-    $actions[] = l(t('save current configuration'), site_phase_get_save_configuration_path($phase->spid), array('query' => $destination, 'attributes' => array('title' => t('Saves the current configuration to the phase.'))));
     $row['actions'] = array('data' => implode(' | ', $actions));
 
     $rows[$phase->spid] = array('data' => $row, 'class' => array('draggable'));
@@ -203,89 +202,6 @@ function site_phase_activate_confirm_submit($form, &$form_state) {
 }
 
 /**
- * Confirmation form for configuring a site phase.
- */
-function site_phase_configure_confirm($form, &$form_state, $phase) {
-  $form['new_phase_name'] = array(
-    '#type' => 'value',
-    '#value' => $phase->machine_name,
-  );
-  $form['confirmation'] = array(
-    '#type' => 'checkbox',
-    '#required' => TRUE,
-    '#title' => t('Yes, I want to configure the %phase_name phase and I understand the consequences of this action.', array('%phase_name' => $phase->name)),
-  );
-  return confirm_form($form, t('Are you sure you want to configure the site phase?'), 'admin/config/system/site-phases',
-                      t('Are you sure you want to configure the %phase_name site phase? IMPORTANT: The site will automatically be set in the %phase_name phase, and all the settings of the %phase_name phase will be active. If you are in the middle of configuring another phase, the changes will be lost.', array('%phase_name' => $phase->name)));
-}
-
-/**
- * Submit handler for the activate phase confirmation form.
- */
-function site_phase_configure_confirm_submit($form, &$form_state) {
-  // @todo: remember the current state and go back to it after commit.
-  $phase = site_phase_machine_name_load($form_state['values']['new_phase_name']);
-  site_phase_activate_phase($phase);
-  // Check if the site phase was updated.
-  $current_phase = site_phase_get_current_phase();
-  if ($current_phase == $phase->machine_name) {
-    drupal_set_message(t('The phase of the site has been changed to %phase_name. You are now in configuration mode.', array('%phase_name' => $phase->name)));
-    site_phase_set_configuration_mode();
-  }
-  else {
-    // @todo: maybe handle some errors here.
-    drupal_set_message(t('There was an error in changing the site phase. The configuration mode for %phase_name has NOT been initialized.', array('%phase_name' => $phase->name)), 'error');
-  }
-  $form_state['redirect'] = 'admin/config/system/site-phases';
-}
-
-/**
- * Confirmation form for configuration commit on the current site phase.
- */
-function site_phase_configure_commit_confirm($form, &$form_state) {
-  // @todo: would be nice to have a list of changes here.
-  $form['confirmation'] = array(
-    '#type' => 'checkbox',
-    '#required' => TRUE,
-    '#title' => t('Yes, I want to commit the changes I made to the current phase.'),
-  );
-  return confirm_form($form, t('Are you sure you want to commit the changes to the current phase?'), 'admin/config/system/site-phases',
-                      t('Are you sure you want to commit the changes to the current phase?'));
-}
-
-/**
- * Submit handler for the activate phase confirmation form.
- */
-function site_phase_configure_commit_confirm_submit($form, &$form_state) {
-  site_phase_commit_configuration();
-  drupal_set_message(t('The configuration has been commited to the current site phase.'));
-  $form_state['redirect'] = 'admin/config/system/site-phases';
-}
-
-/**
- * Confirmation form for configuration commit on the current site phase.
- */
-function site_phase_configure_abort_confirm($form, &$form_state) {
-  // @todo: would be nice to have a list of changes here.
-  $form['confirmation'] = array(
-    '#type' => 'checkbox',
-    '#required' => TRUE,
-    '#title' => t('Yes, I want to abort the changes I made on the current phase.'),
-  );
-  return confirm_form($form, t('Are you sure you want to abort the changes on the current phase?'), 'admin/config/system/site-phases',
-                      t('Are you sure you want to abort the changes on the current phase?'));
-}
-
-/**
- * Submit handler for the activate phase confirmation form.
- */
-function site_phase_configure_abort_confirm_submit($form, &$form_state) {
-  site_phase_abort_configuration();
-  drupal_set_message(t('The configuration has been aborted on the current site phase.'));
-  $form_state['redirect'] = 'admin/config/system/site-phases';
-}
-
-/**
  * Confirmation form for configuration commit on the current site phase.
  */
 function site_phase_delete_confirm($form, &$form_state, $phase) {
@@ -307,27 +223,52 @@ function site_phase_delete_confirm_submit($form, &$form_state) {
 }
 
 /**
- * Confirmation form for configuring a site phase.
+ * Menu callback for the phase configuration page.
  */
-function site_phase_save_configuration_confirm($form, &$form_state, $phase) {
-  $form['phase_name'] = array(
-    '#type' => 'value',
-    '#value' => $phase->machine_name,
+function site_phase_configure_page($phase) {
+  $plugins = site_phase_get_all_state_plugins();
+  $links = array();
+  foreach ($plugins as $key => $plugin) {
+    $links[] = l($plugin['name'], site_phase_get_configure_path($phase->spid) . '/' . $key, array('query' => drupal_get_destination()));
+  }
+  return array(
+    'title' => array(
+      '#markup' => '<h2>' . t('Configure phase %site_phase', array('%site_phase' => $phase->name)) . '</h2>',
+    ),
+    'links' => array(
+      '#theme' => 'item_list',
+      '#items' => $links,
+    ),
   );
-  $form['confirmation'] = array(
-    '#type' => 'checkbox',
-    '#required' => TRUE,
-    '#title' => t('Yes, I want to save the current configuration into the %phase_name phase and I understand the consequences of this action.', array('%phase_name' => $phase->name)),
-  );
-  return confirm_form($form, t('Are you sure you want to overwrite the phase configuration?'), 'admin/config/system/site-phases',
-                      t('Are you sure you want to overwrite the %phase_name site phase configuation?', array('%phase_name' => $phase->name)));
 }
 
 /**
- * Submit handler for the activate phase confirmation form.
+ * Form constructor for configuring the plugin of a site phase.
  */
-function site_phase_save_configuration_confirm_submit($form, &$form_state) {
-  site_phase_commit_configuration($form_state['values']['phase_name']);
-  drupal_set_message(t('The configuration has been saved.'));
-  $form_state['redirect'] = 'admin/config/system/site-phases';
+function site_phase_plugin_configure_form($form, &$form_state, $phase, $plugin) {
+  $state = site_phase_state_load($phase->machine_name, $plugin->getId());
+  $form = $plugin->configurationForm($state);
+  $form['phase'] = array(
+    '#type' => 'value',
+    '#value' => $phase->machine_name,
+  );
+  $form['plugin'] = array(
+    '#type' => 'value',
+    '#value' => $plugin->getId(),
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+
+/**
+ * Submit handler for configuring the plugin of a phase.
+ */
+function site_phase_plugin_configure_form_submit(&$form, &$form_state) {
+  $plugin = site_phase_plugin_load($form_state['values']['plugin']);
+  $plugin_state = $plugin->getStateFromSubmission($form, $form_state);
+  site_phase_state_save($form_state['values']['phase'], $form_state['values']['plugin'], $plugin_state);
+  drupal_set_message(t('The configurations have been saved.'));
 }

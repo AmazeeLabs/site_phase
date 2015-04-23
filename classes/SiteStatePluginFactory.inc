@@ -47,7 +47,7 @@ class SiteStatePluginFactory {
     if (!class_exists($this->map[$key]['class'])) {
       throw new SiteStatePluginClassNotFoundException();
     }
-    $plugin = new $this->map[$key]['class']();
+    $plugin = new $this->map[$key]['class']($key, $this->map[$key]['name']);
     if (!$plugin instanceof SiteStatePluginInterface) {
       throw new SiteStatePluginInvalidClassException();
     }

@@ -6,7 +6,15 @@
  */
 
 interface SiteStatePluginInterface {
-  public function retrieveCurrentState();
+
+  public function getId();
+
+  public function getTitle();
 
   public function applyState($state);
+
+  public function configurationForm($state = NULL);
+
+  public function getStateFromSubmission(&$form, &$form_state);
+
 }

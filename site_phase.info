@@ -5,3 +5,4 @@ core = 7.x
 files[] = interfaces/SiteStatePluginInterface.inc
 files[] = classes/SiteStatePluginFactory.inc
 files[] = classes/SiteStateUserPermPlugin.inc
+files[] = classes/SiteStateBasePlugin.inc

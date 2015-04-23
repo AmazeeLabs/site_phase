@@ -10,20 +10,6 @@
  */
 
 /**
- * Implements hook_init().
- */
-function site_phase_init() {
-  // Checks if the site is in configuration mode, and if yes, show a message.
-  if (site_phase_in_configuration_mode() && user_access('administer site configuration')) {
-    $phase = site_phase_machine_name_load(site_phase_get_current_phase());
-    // @todo: Provide a list with the changes that will be captured.
-    drupal_set_message(t('You are in configuration mode for the %phase_name phase. You can navigate through the site, change the configuration, and then you can !commit_link the changes or !abort_link.',
-    array('%phase_name' => $phase->name, '!commit_link' => l(t('commit'), 'admin/config/system/site-phases/commit_configuration'),
-          '!abort_link' => l(t('abort'), 'admin/config/system/site-phases/abort_configuration'))), 'status', FALSE);
-  }
-}
-
-/**
  * Implements hook_menu().
  */
 function site_phase_menu() {
@@ -34,22 +20,6 @@ function site_phase_menu() {
     'page callback' => 'site_phase_admin',
     'file' => 'includes/site_phase.admin.inc'
   );
-  $items['admin/config/system/site-phases/commit_configuration'] = array(
-    'type' => MENU_CALLBACK,
-    'title' => 'Commit configuration',
-    'access arguments' => array('administer site configuration'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('site_phase_configure_commit_confirm'),
-    'file' => 'includes/site_phase.admin.inc'
-  );
-  $items['admin/config/system/site-phases/abort_configuration'] = array(
-    'type' => MENU_CALLBACK,
-    'title' => 'Abort configuration',
-    'access arguments' => array('administer site configuration'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('site_phase_configure_abort_confirm'),
-    'file' => 'includes/site_phase.admin.inc'
-  );
   $items['admin/config/system/site-phases/%site_phase/activate'] = array(
     'type' => MENU_CALLBACK,
     'title' => 'Activate site phase',
@@ -58,23 +28,27 @@ function site_phase_menu() {
     'page arguments' => array('site_phase_activate_confirm', 4),
     'file' => 'includes/site_phase.admin.inc'
   );
-  // @todo: this menu item could not be used.
   $items['admin/config/system/site-phases/%site_phase/configure'] = array(
-    'type' => MENU_CALLBACK,
+    'type' => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
     'title' => 'Configure site phase',
     'access arguments' => array('administer site configuration'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('site_phase_configure_confirm', 4),
+    'page callback' => 'site_phase_configure_page',
+    'page arguments' => array(4),
     'file' => 'includes/site_phase.admin.inc'
   );
-  $items['admin/config/system/site-phases/%site_phase/save_configuration'] = array(
-    'type' => MENU_CALLBACK,
-    'title' => 'Save site phase configuration',
-    'access arguments' => array('administer site configuration'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('site_phase_save_configuration_confirm', 4),
-    'file' => 'includes/site_phase.admin.inc'
-  );
+  $plugins = site_phase_get_all_state_plugins();
+  $links = array();
+  foreach ($plugins as $key => $plugin) {
+    $items['admin/config/system/site-phases/%site_phase/configure/%site_phase_plugin'] = array(
+      'type' => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
+      'title callback' => 'site_phase_plugin_configure_page_title',
+      'title arguments' => array(4, 6),
+      'access arguments' => array('administer site configuration'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('site_phase_plugin_configure_form', 4, 6),
+      'file' => 'includes/site_phase.admin.inc'
+    );
+  }
   // @todo: should we allow to delete the current phase?
   $items['admin/config/system/site-phases/%site_phase/delete'] = array(
     'type' => MENU_CALLBACK,
@@ -93,6 +67,13 @@ function site_phase_menu() {
     'file' => 'includes/site_phase.admin.inc'
   );
   return $items;
+}
+
+/**
+ * Title callback for the plugin configuration page for a phase.
+ */
+function site_phase_plugin_configure_page_title($phase, $plugin) {
+  return t('Configure the "!plugin_name" plugin for the "!phase_name" phase', array('!plugin_name' => $plugin->getTitle(), '!phase_name' => $phase->name));
 }
 
 /**
@@ -135,14 +116,42 @@ function site_phase_load($spid) {
 }
 
 /**
+ * Loads a plugin by its key.
+ */
+function site_phase_plugin_load($plugin_key) {
+  return SiteStatePluginFactory::getInstance()->getPlugin($plugin_key);
+}
+
+/**
  * Loads the state for a phase.
  */
-function site_phase_state_load($phase_machine_name) {
-  $result = db_select('site_phases_states', 'sps')->fields('sps')->condition('sps.phase_machine_name', $phase_machine_name)->execute()->fetch();
-  if (!empty($result)) {
-    $result->states = unserialize($result->states);
+function site_phase_state_load($phase_machine_name, $plugin_id = NULL) {
+  $query = db_select('site_phases_states', 'sps')->fields('sps')->condition('sps.phase_machine_name', $phase_machine_name);
+  if (!empty($plugin_id)) {
+    $query->condition('sps.plugin_id', $plugin_id);
   }
-  return $result;
+  $result = $query->execute()->fetchAll();
+  if (!empty($result)) {
+    $return = array();
+    foreach ($result as $row) {
+      $row->state = unserialize($row->state);
+      $return[$row->plugin_id] = $row;
+    }
+    if (!empty($plugin_id)) {
+      return $return[$plugin_id];
+    }
+    return $return;
+  }
+  return FALSE;
+}
+
+/**
+ * Saves the state (configuration) of a phase for a plugin.
+ */
+function site_phase_state_save($phase_machine_name, $plugin_id, $state) {
+  db_delete('site_phases_states')->condition('phase_machine_name', $phase_machine_name)->condition('plugin_id', $plugin_id)->execute();
+  $state_object = (object) array('phase_machine_name' => $phase_machine_name, 'plugin_id' => $plugin_id, 'state' => $state);
+  drupal_write_record('site_phases_states', $state_object);
 }
 
 /**
@@ -177,10 +186,6 @@ function site_phase_get_configure_path($spid) {
   return 'admin/config/system/site-phases/' . $spid . '/configure';
 }
 
-function site_phase_get_save_configuration_path($spid) {
-  return 'admin/config/system/site-phases/' . $spid . '/save_configuration';
-}
-
 function site_phase_get_activate_path($spid) {
   return 'admin/config/system/site-phases/' . $spid . '/activate';
 }
@@ -197,15 +202,14 @@ function site_phase_get_current_phase() {
  */
 function site_phase_activate_phase($phase) {
   try {
-    // For each available plugins, we retrieve the current state and save it in
-    // the site_phases_states table.
+    // For each available plugins, we apply the state of the phase.
     $plugins = site_phase_get_all_state_plugins();
     $state = site_phase_state_load($phase->machine_name);
     if (!empty($state)) {
       foreach ($plugins as $plugin_key => $plugin) {
-        if (isset($state->states[$plugin_key])) {
+        if (isset($state[$plugin_key])) {
           $plugin_object = SiteStatePluginFactory::getInstance()->getPlugin($plugin_key);
-          $plugin_object->applyState($state->states[$plugin_key]);
+          $plugin_object->applyState($state[$plugin_key]);
         }
       }
     }
@@ -215,22 +219,6 @@ function site_phase_activate_phase($phase) {
     watchdog_exception('site_phase', $e);
   }
   variable_set('site_phase_current', $phase->machine_name);
-  // Make sure that the site_phase_configure is unset here.
-  variable_del('site_phase_configure');
-}
-
-/**
- * Sets the site in configuration mode.
- */
-function site_phase_set_configuration_mode() {
-  variable_set('site_phase_configure', TRUE);
-}
-
-/**
- * Checks if the site is currently in configuration mode.
- */
-function site_phase_in_configuration_mode() {
-  return variable_get('site_phase_configure', FALSE);
 }
 
 /**
@@ -239,44 +227,6 @@ function site_phase_in_configuration_mode() {
 function site_phase_get_all_state_plugins() {
   $plugins = module_invoke_all('site_phase_state_plugins');
   return $plugins;
-}
-
-/**
- * Commits the current configuration for the current state.
- */
-function site_phase_commit_configuration($phase_machine_name = '') {
-  try {
-    // For each available plugins, we retrieve the current state and save it in
-    // the site_phases_states table.
-    $plugins = site_phase_get_all_state_plugins();
-    $states = array();
-    foreach ($plugins as $plugin_key => $plugin) {
-      $plugin_object = SiteStatePluginFactory::getInstance()->getPlugin($plugin_key);
-      $states[$plugin_key] = $plugin_object->retrieveCurrentState();
-    }
-    // Save the state for the current phase.
-    if (empty($phase_machine_name)) {
-      $phase_machine_name = site_phase_get_current_phase();
-    }
-    db_delete('site_phases_states')->condition('phase_machine_name', $phase_machine_name)->execute();
-    $state_object = (object) array('phase_machine_name' => $phase_machine_name, 'states' => $states);
-    drupal_write_record('site_phases_states', $state_object);
-  }
-  catch (Exception $e) {
-    // @todo: maybe hande different types of exceptions.
-    watchdog_exception('site_phase', $e);
-  }
-
-  // If we reach here, remove the site from the configuration state.
-  variable_del('site_phase_configure');
-}
-
-/**
- * Aborts the current configuration on the site.
- */
-function site_phase_abort_configuration() {
-  // We do nothing, just delete the configuration mode variable.
-  variable_del('site_phase_configure');
 }
 
 /**

@@ -72,7 +72,14 @@ function site_phase_schema() {
         'not null' => TRUE,
         'default' => '',
       ),
-      'states' => array(
+      'plugin_id' => array(
+        'description' => 'The id of the plugin.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'state' => array(
         'type' => 'blob',
         'not null' => FALSE,
         'size' => 'big',
@@ -101,4 +108,10 @@ function site_phase_install() {
     'is_default' => 1
   );
   drupal_write_record('site_phases', $default_state);
+}
+
+function site_phase_update_7001() {
+  $schema = site_phase_schema();
+  db_add_field('site_phases_states', 'plugin_id', $schema['site_phases_states']['fields']['plugin_id']);
+  db_change_field('site_phases_states', 'state', 'state', $schema['site_phases_states']['fields']['state']);
 }
