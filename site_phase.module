@@ -36,19 +36,15 @@ function site_phase_menu() {
     'page arguments' => array(4),
     'file' => 'includes/site_phase.admin.inc'
   );
-  $plugins = site_phase_get_all_state_plugins();
-  $links = array();
-  foreach ($plugins as $key => $plugin) {
-    $items['admin/config/system/site-phases/%site_phase/configure/%site_phase_plugin'] = array(
-      'type' => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
-      'title callback' => 'site_phase_plugin_configure_page_title',
-      'title arguments' => array(4, 6),
-      'access arguments' => array('administer site configuration'),
-      'page callback' => 'drupal_get_form',
-      'page arguments' => array('site_phase_plugin_configure_form', 4, 6),
-      'file' => 'includes/site_phase.admin.inc'
-    );
-  }
+  $items['admin/config/system/site-phases/%site_phase/configure/%site_phase_plugin/%'] = array(
+    'type' => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
+    'title callback' => 'site_phase_plugin_configure_page_title',
+    'title arguments' => array(4, 6, 7),
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('site_phase_plugin_configure_form', 4, 6, 7),
+    'file' => 'includes/site_phase.admin.inc'
+  );
   // @todo: should we allow to delete the current phase?
   $items['admin/config/system/site-phases/%site_phase/delete'] = array(
     'type' => MENU_CALLBACK,
@@ -72,8 +68,12 @@ function site_phase_menu() {
 /**
  * Title callback for the plugin configuration page for a phase.
  */
-function site_phase_plugin_configure_page_title($phase, $plugin) {
-  return t('Configure the "!plugin_name" plugin for the "!phase_name" phase', array('!plugin_name' => $plugin->getTitle(), '!phase_name' => $phase->name));
+function site_phase_plugin_configure_page_title($phase, $plugin, $configuration_area = NULL) {
+  if (!empty($configuration_area)) {
+    $configuration_areas = $plugin->getConfigurationAreas();
+    return t('Configure the "!configuration_area" of the "!plugin_name" plugin for the "!phase_name" site phase', array('!configuration_area' => $configuration_areas[$configuration_area]['title'], '!plugin_name' => $plugin->getTitle(), '!phase_name' => $phase->name));
+  }
+  return t('Configure the "!plugin_name" plugin for the "!phase_name" site phase', array('!plugin_name' => $plugin->getTitle(), '!phase_name' => $phase->name));
 }
 
 /**
@@ -119,25 +119,31 @@ function site_phase_load($spid) {
  * Loads a plugin by its key.
  */
 function site_phase_plugin_load($plugin_key) {
-  return SiteStatePluginFactory::getInstance()->getPlugin($plugin_key);
+  return SiteConfigurationPluginFactory::getInstance()->getPlugin($plugin_key);
 }
 
 /**
- * Loads the state for a phase.
+ * Loads the configuration for a phase.
  */
-function site_phase_state_load($phase_machine_name, $plugin_id = NULL) {
-  $query = db_select('site_phases_states', 'sps')->fields('sps')->condition('sps.phase_machine_name', $phase_machine_name);
+function site_phase_configuration_load($phase_machine_name, $plugin_id = NULL, $configuration_area = NULL) {
+  $query = db_select('site_phases_configuration', 'spc')->fields('spc')->condition('spc.phase_machine_name', $phase_machine_name);
   if (!empty($plugin_id)) {
-    $query->condition('sps.plugin_id', $plugin_id);
+    $query->condition('spc.plugin_id', $plugin_id);
+  }
+  if (!empty($configuration_area)) {
+    $query->condition('spc.configuration_area', $configuration_area);
   }
   $result = $query->execute()->fetchAll();
   if (!empty($result)) {
     $return = array();
     foreach ($result as $row) {
-      $row->state = unserialize($row->state);
-      $return[$row->plugin_id] = $row;
+      $row->configuration = unserialize($row->configuration);
+      $return[$row->plugin_id][$row->configuration_area] = $row;
     }
-    if (!empty($plugin_id)) {
+    if (!empty($plugin_id) && !empty($configuration_area)) {
+      return $return[$plugin_id][$configuration_area];
+    }
+    elseif (!empty($plugin_id)) {
       return $return[$plugin_id];
     }
     return $return;
@@ -146,12 +152,12 @@ function site_phase_state_load($phase_machine_name, $plugin_id = NULL) {
 }
 
 /**
- * Saves the state (configuration) of a phase for a plugin.
+ * Saves the configuration of a phase for a plugin.
  */
-function site_phase_state_save($phase_machine_name, $plugin_id, $state) {
-  db_delete('site_phases_states')->condition('phase_machine_name', $phase_machine_name)->condition('plugin_id', $plugin_id)->execute();
-  $state_object = (object) array('phase_machine_name' => $phase_machine_name, 'plugin_id' => $plugin_id, 'state' => $state);
-  drupal_write_record('site_phases_states', $state_object);
+function site_phase_configuration_save($phase_machine_name, $plugin_id, $configuration_area, $configuration) {
+  db_delete('site_phases_configuration')->condition('phase_machine_name', $phase_machine_name)->condition('plugin_id', $plugin_id)->condition('configuration_area', $configuration_area)->execute();
+  $configuration_object = (object) array('phase_machine_name' => $phase_machine_name, 'plugin_id' => $plugin_id, 'configuration_area' => $configuration_area, 'configuration' => $configuration);
+  drupal_write_record('site_phases_configuration', $configuration_object);
 }
 
 /**
@@ -170,7 +176,7 @@ function site_phase_save($phase) {
  */
 function site_phase_delete($machine_name) {
   db_delete('site_phases')->condition('machine_name', $machine_name)->execute();
-  db_delete('site_phases_states')->condition('phase_machine_name', $machine_name)->execute();
+  db_delete('site_phases_configuration')->condition('phase_machine_name', $machine_name)->execute();
 }
 
 // A few helpers for the actions paths.
@@ -202,14 +208,14 @@ function site_phase_get_current_phase() {
  */
 function site_phase_activate_phase($phase) {
   try {
-    // For each available plugins, we apply the state of the phase.
-    $plugins = site_phase_get_all_state_plugins();
-    $state = site_phase_state_load($phase->machine_name);
-    if (!empty($state)) {
+    // For each available plugins, we apply the configuration of the phase.
+    $plugins = site_phase_get_all_configuration_plugins();
+    $configuration = site_phase_configuration_load($phase->machine_name);
+    if (!empty($configuration)) {
       foreach ($plugins as $plugin_key => $plugin) {
-        if (isset($state[$plugin_key])) {
-          $plugin_object = SiteStatePluginFactory::getInstance()->getPlugin($plugin_key);
-          $plugin_object->applyState($state[$plugin_key]);
+        if (isset($configuration[$plugin_key])) {
+          $plugin_object = SiteConfigurationPluginFactory::getInstance()->getPlugin($plugin_key);
+          $plugin_object->applyConfiguration($configuration[$plugin_key]);
         }
       }
     }
@@ -222,24 +228,32 @@ function site_phase_activate_phase($phase) {
 }
 
 /**
- * Returns all the available state plugins on the site.
+ * Returns all the available configuration plugins on the site.
  */
-function site_phase_get_all_state_plugins() {
-  $plugins = module_invoke_all('site_phase_state_plugins');
+function site_phase_get_all_configuration_plugins() {
+  $plugins = module_invoke_all('site_phase_configuration_plugins');
   return $plugins;
 }
 
 /**
- * Implements hook_site_phase_state_plugins().
+ * Implements hook_site_phase_configuration_plugins().
  *
  * @todo: Document in an api folder.
  */
-function site_phase_site_phase_state_plugins() {
+function site_phase_site_phase_configuration_plugins() {
   return array(
     'user_perm' => array(
-      'class' => 'SiteStateUserPermPlugin',
-      'name' => 'User permissions',
-      'description' => 'State plugin for the current user permissions on the site.'
+      'class' => 'SiteUserPermConfigurationPlugin',
+      'title' => 'User permissions',
+      'description' => 'Configuration plugin for the current user permissions on the site.',
+      'configuration_areas' => array(
+        'available_permissions' => array(
+          'title' => t('Available permissions'),
+        ),
+        'permissions' => array(
+          'title' => t('Permissions configuration'),
+        ),
+      ),
     ),
   );
 }

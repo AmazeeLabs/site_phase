@@ -226,10 +226,17 @@ function site_phase_delete_confirm_submit($form, &$form_state) {
  * Menu callback for the phase configuration page.
  */
 function site_phase_configure_page($phase) {
-  $plugins = site_phase_get_all_state_plugins();
+  $plugins = site_phase_get_all_configuration_plugins();
   $links = array();
   foreach ($plugins as $key => $plugin) {
-    $links[] = l($plugin['name'], site_phase_get_configure_path($phase->spid) . '/' . $key, array('query' => drupal_get_destination()));
+    $plugin_object = site_phase_plugin_load($key);
+    $links[$key]['data'] = $plugin_object->getTitle();
+
+    $configuration_areas = $plugin_object->getConfigurationAreas();
+    $plugin_id = $plugin_object->getId();
+    foreach ($configuration_areas as $configuration_key => $configuration_area) {
+      $links[$key]['children'][] = l($configuration_area['title'], site_phase_get_configure_path($phase->spid) . '/' . $plugin_id . '/' . $configuration_key, array('query' => drupal_get_destination()));
+    }
   }
   return array(
     'title' => array(
@@ -245,9 +252,7 @@ function site_phase_configure_page($phase) {
 /**
  * Form constructor for configuring the plugin of a site phase.
  */
-function site_phase_plugin_configure_form($form, &$form_state, $phase, $plugin) {
-  $state = site_phase_state_load($phase->machine_name, $plugin->getId());
-  $form = $plugin->configurationForm($state);
+function site_phase_plugin_configure_form($form, &$form_state, $phase, $plugin, $configuration_area) {
   $form['phase'] = array(
     '#type' => 'value',
     '#value' => $phase->machine_name,
@@ -256,10 +261,17 @@ function site_phase_plugin_configure_form($form, &$form_state, $phase, $plugin) 
     '#type' => 'value',
     '#value' => $plugin->getId(),
   );
+  $form['configuration_area'] = array(
+    '#type' => 'value',
+    '#value' => $configuration_area,
+  );
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Submit'),
+    '#weight' => 50,
   );
+  $configuration = site_phase_configuration_load($phase->machine_name, $plugin->getId());
+  $plugin->configurationForm($form, $form_state, $configuration_area, $configuration);
   return $form;
 }
 
@@ -268,7 +280,7 @@ function site_phase_plugin_configure_form($form, &$form_state, $phase, $plugin) 
  */
 function site_phase_plugin_configure_form_submit(&$form, &$form_state) {
   $plugin = site_phase_plugin_load($form_state['values']['plugin']);
-  $plugin_state = $plugin->getStateFromSubmission($form, $form_state);
-  site_phase_state_save($form_state['values']['phase'], $form_state['values']['plugin'], $plugin_state);
+  $plugin_state = $plugin->getConfigurationFromSubmission($form_state['values']['configuration_area'], $form, $form_state);
+  site_phase_configuration_save($form_state['values']['phase'], $form_state['values']['plugin'], $form_state['values']['configuration_area'], $plugin_state);
   drupal_set_message(t('The configurations have been saved.'));
 }

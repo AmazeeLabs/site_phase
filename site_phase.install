@@ -62,8 +62,8 @@ function site_phase_schema() {
     'unique keys' => array('machine_name' => array('machine_name'))
   );
 
-  $schema['site_phases_states'] = array(
-    'description' => 'Store the states of site phases.',
+  $schema['site_phases_configuration'] = array(
+    'description' => 'Store the configuration of site phases.',
     'fields' => array(
       'phase_machine_name' => array(
         'description' => 'The machine name of the phase.',
@@ -79,15 +79,22 @@ function site_phase_schema() {
         'not null' => TRUE,
         'default' => '',
       ),
-      'state' => array(
+      'configuration_area' => array(
+        'description' => 'What area of the site is configured.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'configuration' => array(
         'type' => 'blob',
         'not null' => FALSE,
         'size' => 'big',
         'serialize' => TRUE,
-        'description' => 'Stores the various states of the components for this phase',
+        'description' => 'Stores a plugin area configuration for a phase.',
       ),
     ),
-    'primary key' => array('phase_machine_name'),
+    'primary key' => array('phase_machine_name', 'plugin_id', 'configuration_area'),
   );
 
   return $schema;
@@ -97,21 +104,15 @@ function site_phase_schema() {
  * Implements hook_install().
  */
 function site_phase_install() {
-  // Insert the default state of the site.
-  $default_state = (object) array(
+  // Insert the default phase of the site.
+  $default_phase = (object) array(
     'machine_name' => 'default',
     'name' => 'Default',
     'description' => 'Default phase of the the site',
     'weight' => -10,
-    // Make this the default state and lock it.
+    // Make this the default phase and lock it.
     'is_locked' => 1,
     'is_default' => 1
   );
-  drupal_write_record('site_phases', $default_state);
-}
-
-function site_phase_update_7001() {
-  $schema = site_phase_schema();
-  db_add_field('site_phases_states', 'plugin_id', $schema['site_phases_states']['fields']['plugin_id']);
-  db_change_field('site_phases_states', 'state', 'state', $schema['site_phases_states']['fields']['state']);
+  drupal_write_record('site_phases', $default_phase);
 }
