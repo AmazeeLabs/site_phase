@@ -15,22 +15,68 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
    * @see SiteConfigurationPluginInterface::applyConfiguration()
    */
   public function applyConfiguration($configuration) {
-    // @todo: This need to be completely rewritten.
-    /*$transaction = db_transaction();
+    $permissions_modules = user_permission_get_modules();
+    // For each available permission, if the permission is granted for a role,
+    // then we saved it in the database, otherwise we delete it from the
+    // database.
+    $transaction = db_transaction();
     try {
-      // We must have something in the state, otherwise do nothing.
-      if (!empty($state)) {
-        db_truncate('role_permission')->execute();
-        $query = db_insert('role_permission')->fields(array('rid', 'permission', 'module'));
-        foreach ($state as $permission) {
-          $query->values(array($permission->rid, $permission->permission, $permission->module));
+      if (!empty($configuration['available_permissions']->configuration['permissions']) && !empty($configuration['permissions']->configuration['permissions'])) {
+        // Instead of deleting one permission at a time, we make a batch
+        // deletion. Basically, we delete all the permissions which are
+        // available for configuration (for the set of roles which we have
+        // the configuration set). The permissions will later be added if needed.
+        $rids = array_keys($configuration['permissions']->configuration['permissions']);
+        $available_permissions = array_chunk($configuration['available_permissions']->configuration['permissions'], 50, TRUE);
+        foreach ($available_permissions as $perms) {
+          db_delete('role_permission')->condition('rid', $rids)->condition('permission', $perms)->execute();
         }
-        $query->execute();
+
+        // Time to add the permissions based on the configuration.
+        $query = db_insert('role_permission')->fields(array('rid', 'permission', 'module'));
+        $execute_query = FALSE;
+        foreach ($configuration['available_permissions']->configuration['permissions'] as $permission_key) {
+          foreach ($configuration['permissions']->configuration['permissions'] as $rid => $permissions) {
+            if (!empty($permissions[$permission_key])) {
+              $query->values(array($rid, $permission_key, $permissions_modules[$permission_key]));
+              $execute_query = TRUE;
+            }
+          }
+        }
+        if ($execute_query) {
+          $query->execute();
+        }
       }
     }
     catch (Exception $e) {
       $transaction->rollback();
-    }*/
+    }
+  }
+
+  /**
+   * (non-PHPdoc)
+   * @see SiteConfigurationPluginInterface::mergeConfiguration()
+   */
+  public function mergeConfiguration($conf1, $conf2) {
+    // For all the available permissions defined in $conf2, we overwrite the
+    // settings in $conf1.
+    $result = $conf1;
+    if (!empty($conf2['available_permissions']->configuration['permissions'])) {
+      foreach ($conf2['available_permissions']->configuration['permissions'] as $permission_string) {
+        foreach ($conf2['permissions']->configuration['permissions'] as $rid => $permissions) {
+          if (empty($permissions[$permission_string]) && !empty($result['permissions']->configuration['permissions'][$rid][$permission_string])) {
+            unset($result['permissions']->configuration['permissions'][$rid][$permission_string]);
+          }
+          elseif (!empty($permissions[$permission_string])) {
+            $result['permissions']->configuration['permissions'][$rid][$permission_string] = $permission_string;
+            // Also, in this case, make sure the the results has the permission
+            // string in the available permissions.
+            $result['available_permissions']->configuration['permissions'][$permission_string] = $permission_string;
+          }
+        }
+      }
+    }
+    return $result;
   }
 
   /**

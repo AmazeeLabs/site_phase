@@ -13,6 +13,11 @@ interface SiteConfigurationPluginInterface {
 
   public function applyConfiguration($configuration);
 
+  /**
+   * Merges the conf2 into $conf1.
+   */
+  public function mergeConfiguration($conf1, $conf2);
+
   public function getCurrentSiteConfiguration();
 
   public function getConfigurationAreas();
