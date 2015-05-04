@@ -13,9 +13,11 @@ interface SiteConfigurationPluginInterface {
 
   public function applyConfiguration($configuration);
 
+  public function getCurrentSiteConfiguration();
+
   public function getConfigurationAreas();
 
-  public function configurationForm(&$form, &$form_state, $configuration_area, $configuration = NULL);
+  public function configurationForm(&$form, &$form_state, $configuration_area, $default_phase_configuration = NULL, $configuration = NULL);
 
   public function getConfigurationFromSubmission($configuration_area, &$form, &$form_state);
 

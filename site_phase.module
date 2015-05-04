@@ -45,6 +45,14 @@ function site_phase_menu() {
     'page arguments' => array('site_phase_plugin_configure_form', 4, 6, 7),
     'file' => 'includes/site_phase.admin.inc'
   );
+  $items['admin/config/system/site-phases/%site_phase/configure/%site_phase_plugin/%/copy-current-state'] = array(
+    'type' => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
+    'title' => 'Copy current state',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('site_phase_copy_current_site_state_confirm', 4, 6, 7),
+    'file' => 'includes/site_phase.admin.inc'
+  );
   // @todo: should we allow to delete the current phase?
   $items['admin/config/system/site-phases/%site_phase/delete'] = array(
     'type' => MENU_CALLBACK,
@@ -113,6 +121,13 @@ function site_phase_machine_name_load($machine_name) {
  */
 function site_phase_load($spid) {
   return db_select('site_phases', 'sp')->fields('sp')->condition('sp.spid', $spid)->execute()->fetch();
+}
+
+/**
+ * Loads the default phase of the site.
+ */
+function site_phase_default_load() {
+  return db_select('site_phases', 'sp')->fields('sp')->condition('sp.is_default', 1)->execute()->fetch();
 }
 
 /**
@@ -192,6 +207,10 @@ function site_phase_get_configure_path($spid) {
   return 'admin/config/system/site-phases/' . $spid . '/configure';
 }
 
+function site_phase_get_copy_state_path($spid) {
+  return 'admin/config/system/site-phases/' . $spid . '/copy-current-state';
+}
+
 function site_phase_get_activate_path($spid) {
   return 'admin/config/system/site-phases/' . $spid . '/activate';
 }
@@ -225,6 +244,39 @@ function site_phase_activate_phase($phase) {
     watchdog_exception('site_phase', $e);
   }
   variable_set('site_phase_current', $phase->machine_name);
+}
+
+/**
+ * Saves the current configuration of the site to a phase.
+ */
+function site_phase_copy_current_state_to_phase($phase_machine_name, $plugin_id = NULL, $configuration_area = NULL) {
+  try {
+    // For each available plugins, we get the site configuration and save it on
+    // the phase.
+    $plugins = site_phase_get_all_configuration_plugins();
+    foreach ($plugins as $plugin_key => $plugin) {
+      $plugin_object = SiteConfigurationPluginFactory::getInstance()->getPlugin($plugin_key);
+      // Filter out all the other plugins which should not be updated.
+      if (!empty($plugin_id) && $plugin_object->getId() != $plugin_id) {
+        continue;
+      }
+      $current_configuration = $plugin_object->getCurrentSiteConfiguration();
+      if (!empty($current_configuration)) {
+        foreach ($current_configuration as $conf_area => $configuration) {
+          // Also, filter out the configuration areas, if we have such a
+          // parameter.
+          if (!empty($configuration_area) && $conf_area != $configuration_area) {
+            continue;
+          }
+          site_phase_configuration_save($phase_machine_name, $plugin_object->getId(), $conf_area, $configuration);
+        }
+      }
+    }
+  }
+  catch (Exception $e) {
+    // @todo: maybe hande different types of exceptions.
+    watchdog_exception('site_phase', $e);
+  }
 }
 
 /**

@@ -109,7 +109,6 @@ function site_phase_admin_form($form, &$form_state, $phases) {
     if (empty($phase->is_locked) && $current_phase_name != $phase->machine_name) {
       $actions[] = l(t('delete'), site_phase_get_delete_path($phase->spid), array('query' => $destination));
     }
-    // Disabled for now. Could be removed or refactored in the future.
     $actions[] = l(t('configure'), site_phase_get_configure_path($phase->spid), array('query' => $destination));
     $actions[] = l(t('activate'), site_phase_get_activate_path($phase->spid), array('query' => $destination));
     $row['actions'] = array('data' => implode(' | ', $actions));
@@ -223,6 +222,41 @@ function site_phase_delete_confirm_submit($form, &$form_state) {
 }
 
 /**
+ * Confirmation form for configuration commit on the current site phase.
+ */
+function site_phase_copy_current_site_state_confirm($form, &$form_state, $phase, $plugin, $configuration_area) {
+  $form['phase'] = array(
+    '#type' => 'value',
+    '#value' => $phase->machine_name,
+  );
+  $form['plugin'] = array(
+    '#type' => 'value',
+    '#value' => $plugin->getId(),
+  );
+  $form['configuration_area'] = array(
+    '#type' => 'value',
+    '#value' => $configuration_area,
+  );
+  $configuration_areas = $plugin->getConfigurationAreas();
+  return confirm_form($form, t('Are you sure you want to overwrite the configuration of the phase?'), 'admin/config/system/site-phases',
+                      t('Are you sure you want to overwrite the %configuration_area of the %plugin_name for the %phase_name phase with the current state of the site?',
+                          array('%configuration_area' => $configuration_areas[$configuration_area]['title'], '%plugin_name' => $plugin->getTitle(),  '%phase_name' => $phase->name)));
+}
+
+/**
+ * Submit handler for the activate phase confirmation form.
+ */
+function site_phase_copy_current_site_state_confirm_submit($form, &$form_state) {
+  site_phase_copy_current_state_to_phase($form_state['values']['phase'], $form_state['values']['plugin'], $form_state['values']['configuration_area']);
+  $phase = site_phase_machine_name_load($form_state['values']['phase']);
+  $plugin = site_phase_plugin_load($form_state['values']['plugin']);
+  $configuration_areas = $plugin->getConfigurationAreas();
+  drupal_set_message(t('The current state of the site for the %plugin_name:%configuration_area has been copied to the %site_phase phase.',
+                      array( '%site_phase' => $phase->name, '%plugin_name' => $plugin->getTitle(), '%configuration_area' => $configuration_areas[$form_state['values']['configuration_area']]['title'])));
+  $form_state['redirect'] = 'admin/config/system/site-phases';
+}
+
+/**
  * Menu callback for the phase configuration page.
  */
 function site_phase_configure_page($phase) {
@@ -270,8 +304,16 @@ function site_phase_plugin_configure_form($form, &$form_state, $phase, $plugin, 
     '#value' => t('Submit'),
     '#weight' => 50,
   );
+  $form['copy_current_state'] = array(
+    '#type' => 'submit',
+    '#value' => t('Copy current site state'),
+    '#weight' => 51,
+    '#submit' => array('site_phase_plugin_configure_copy_state_submit'),
+  );
   $configuration = site_phase_configuration_load($phase->machine_name, $plugin->getId());
-  $plugin->configurationForm($form, $form_state, $configuration_area, $configuration);
+  $default_phase = site_phase_default_load();
+  $default_configuration = site_phase_configuration_load($default_phase->machine_name, $plugin->getId());
+  $plugin->configurationForm($form, $form_state, $configuration_area, $default_configuration, $configuration);
   return $form;
 }
 
@@ -283,4 +325,14 @@ function site_phase_plugin_configure_form_submit(&$form, &$form_state) {
   $plugin_state = $plugin->getConfigurationFromSubmission($form_state['values']['configuration_area'], $form, $form_state);
   site_phase_configuration_save($form_state['values']['phase'], $form_state['values']['plugin'], $form_state['values']['configuration_area'], $plugin_state);
   drupal_set_message(t('The configurations have been saved.'));
+}
+
+function site_phase_plugin_configure_copy_state_submit(&$form, &$form_state) {
+  $phase = site_phase_machine_name_load($form_state['values']['phase']);
+  $options = array();
+  if (!empty($_GET['destination'])) {
+    $options['query']['destination'] = $_GET['destination'];
+    unset($_GET['destination']);
+  }
+  $form_state['redirect'] = array(site_phase_get_configure_path($phase->spid) . '/' . $form_state['values']['plugin'] . '/' . $form_state['values']['configuration_area'] . '/copy-current-state', $options);
 }
