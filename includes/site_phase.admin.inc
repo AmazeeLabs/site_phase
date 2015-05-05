@@ -48,7 +48,7 @@ function site_phase_add_edit_form($form, &$form_state, $site_phase = NULL) {
     '#type' => 'weight',
     '#title' => t('Weight'),
     '#default_value' => !empty($site_phase) ? $site_phase->weight : 0,
-    '#delta' => 10,
+    '#delta' => 50,
   );
   if (!empty($site_phase)) {
     $form['spid'] = array(
@@ -59,6 +59,7 @@ function site_phase_add_edit_form($form, &$form_state, $site_phase = NULL) {
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => !empty($site_phase) ? t('Update') : t('Save'),
+    '#weight' => 50,
   );
   return $form;
 }
@@ -74,6 +75,7 @@ function site_phase_add_edit_form_submit(&$form, &$form_state) {
     $site_phase->{$field_name} = $form_state['values'][$field_name];
   }
   site_phase_save($site_phase);
+  $form_state['phase'] = $site_phase;
   drupal_set_message(t('The site phase has been saved.'));
 }
 
