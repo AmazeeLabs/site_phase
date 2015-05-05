@@ -158,12 +158,6 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
     module_load_include('inc', 'user', 'user.admin');
     $form = user_admin_permissions($form, $form_state);
 
-    // Hack for the login toboggan: the module will alter the user.permissions.js
-    // but if logintoboggan_form_user_admin_permissions_alter() is not called,
-    // it will generated an error in javascript.
-    if (function_exists('logintoboggan_form_user_admin_permissions_alter')) {
-      logintoboggan_form_user_admin_permissions_alter($form, $form_state);
-    }
     unset($form['actions']);
     $form['#theme'] = 'user_admin_permissions';
 
