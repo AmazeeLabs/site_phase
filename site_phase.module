@@ -136,8 +136,12 @@ function site_phase_get_all_phases() {
 /**
  * Loads a site phase based on the machine name.
  */
-function site_phase_machine_name_load($machine_name) {
-  return db_select('site_phases', 'sp')->fields('sp')->condition('sp.machine_name', $machine_name)->execute()->fetch();
+function site_phase_machine_name_load($machine_name, $reset = FALSE) {
+  $phases = &drupal_static(__FUNCTION__);
+  if (!isset($phases[$machine_name]) || $reset) {
+    $phases[$machine_name] = db_select('site_phases', 'sp')->fields('sp')->condition('sp.machine_name', $machine_name)->execute()->fetch();
+  }
+  return $phases[$machine_name];
 }
 
 /**
