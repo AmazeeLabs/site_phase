@@ -21,8 +21,41 @@ function site_phase_entity_info() {
       'id' => 'spid',
       'label' => 'name',
     ),
+    'views controller class' => 'EntityDefaultViewsController',
   );
   return $entities;
+}
+
+/**
+ * Implement hook_entity_property_info_alter().
+ */
+function site_phase_entity_property_info_alter(&$info) {
+  if (!empty($info['site_phase']['properties']['machine_name'])) {
+    $info['site_phase']['properties']['machine_name']['options list'] = 'site_phase_views_machine_name_list';
+  }
+}
+
+/**
+ * Options list callback for the machine name of the phases, to be used with
+ * views.
+ */
+function site_phase_views_machine_name_list() {
+  $phases = site_phase_get_all_phases();
+  $options = array();
+  $options['***CURRENT_SITE_PHASE***'] = t('Current site phase');
+  foreach ($phases as $phase) {
+    $options[$phase->machine_name] = $phase->name;
+  }
+  return $options;
+}
+
+/**
+ * Implementes hook_views_query_substitutions().
+ */
+function site_phase_views_query_substitutions($view) {
+  return array(
+    '***CURRENT_SITE_PHASE***' => site_phase_get_current_phase(),
+  );
 }
 
 /**
