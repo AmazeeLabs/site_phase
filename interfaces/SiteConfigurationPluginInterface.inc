@@ -11,6 +11,9 @@ interface SiteConfigurationPluginInterface {
 
   public function getTitle();
 
+  /**
+   * Applies a configuration to the site.
+   */
   public function applyConfiguration($configuration);
 
   /**
@@ -22,8 +25,8 @@ interface SiteConfigurationPluginInterface {
 
   public function getConfigurationAreas();
 
-  public function configurationForm(&$form, &$form_state, $configuration_area, $default_phase_configuration = NULL, $configuration = NULL);
+  public function configurationForm(&$form, &$form_state, $phase, $configuration_area, $default_phase_configuration = NULL, $configuration = NULL);
 
-  public function getConfigurationFromSubmission($configuration_area, &$form, &$form_state);
+  public function getConfigurationFromSubmission($phase, $configuration_area, &$form, &$form_state);
 
 }

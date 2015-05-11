@@ -315,7 +315,7 @@ function site_phase_plugin_configure_form($form, &$form_state, $phase, $plugin, 
   $configuration = site_phase_configuration_load($phase->machine_name, $plugin->getId());
   $default_phase = site_phase_default_load();
   $default_configuration = site_phase_configuration_load($default_phase->machine_name, $plugin->getId());
-  $plugin->configurationForm($form, $form_state, $configuration_area, $default_configuration, $configuration);
+  $plugin->configurationForm($form, $form_state, $phase, $configuration_area, $default_configuration, $configuration);
   return $form;
 }
 
@@ -324,11 +324,15 @@ function site_phase_plugin_configure_form($form, &$form_state, $phase, $plugin, 
  */
 function site_phase_plugin_configure_form_submit(&$form, &$form_state) {
   $plugin = site_phase_plugin_load($form_state['values']['plugin']);
-  $plugin_state = $plugin->getConfigurationFromSubmission($form_state['values']['configuration_area'], $form, $form_state);
+  $phase = site_phase_machine_name_load($form_state['values']['phase']);
+  $plugin_state = $plugin->getConfigurationFromSubmission($phase, $form_state['values']['configuration_area'], $form, $form_state);
   site_phase_configuration_save($form_state['values']['phase'], $form_state['values']['plugin'], $form_state['values']['configuration_area'], $plugin_state);
   drupal_set_message(t('The configurations have been saved.'));
 }
 
+/**
+ * Submit handler for the 'Copy current site state' button.
+ */
 function site_phase_plugin_configure_copy_state_submit(&$form, &$form_state) {
   $phase = site_phase_machine_name_load($form_state['values']['phase']);
   $options = array();

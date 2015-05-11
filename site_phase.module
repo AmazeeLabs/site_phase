@@ -212,12 +212,15 @@ function site_phase_configuration_load($phase_machine_name, $plugin_id = NULL, $
     $query->condition('spc.configuration_area', $configuration_area);
   }
   $result = $query->execute()->fetchAll();
+  $return = array();
   if (!empty($result)) {
-    $return = array();
     foreach ($result as $row) {
       $row->configuration = unserialize($row->configuration);
       $return[$row->plugin_id][$row->configuration_area] = $row;
     }
+  }
+  drupal_alter('site_phase_configuration_load', $return, $phase_machine_name, $plugin_id, $configuration_area);
+  if (!empty($return)) {
     if (!empty($plugin_id) && !empty($configuration_area)) {
       return $return[$plugin_id][$configuration_area];
     }
@@ -230,12 +233,45 @@ function site_phase_configuration_load($phase_machine_name, $plugin_id = NULL, $
 }
 
 /**
+ * Implements hook_site_phase_configuration_load_alter().
+ */
+function site_phase_site_phase_configuration_load_alter(&$return, $phase_machine_name, $plugin_id = NULL, $configuration_area = NULL) {
+  $default_phase = site_phase_default_load();
+  // When we load the available permissions for the default phase, we will
+  // basically load all the permission from the site.
+  if ($default_phase->machine_name == $phase_machine_name) {
+    if (!empty($return['user_perm']['available_permissions']) ||
+       (empty($plugin_id)) ||
+       (!empty($plugin_id) && $plugin_id == 'user_perm' && empty($configuration_area)) ||
+       (!empty($configuration_area) && $plugin_id == 'user_perm' && $configuration_area == 'available_permissions')) {
+      $all_permissions = module_invoke_all('permission');
+      foreach ($all_permissions as $key => $permission) {
+        $return['user_perm']['available_permissions']->configuration['permissions'][$key] = $key;
+      }
+    }
+  }
+}
+
+/**
  * Saves the configuration of a phase for a plugin.
  */
 function site_phase_configuration_save($phase_machine_name, $plugin_id, $configuration_area, $configuration) {
   db_delete('site_phases_configuration')->condition('phase_machine_name', $phase_machine_name)->condition('plugin_id', $plugin_id)->condition('configuration_area', $configuration_area)->execute();
   $configuration_object = (object) array('phase_machine_name' => $phase_machine_name, 'plugin_id' => $plugin_id, 'configuration_area' => $configuration_area, 'configuration' => $configuration);
   drupal_write_record('site_phases_configuration', $configuration_object);
+
+  // If we save the current or the default phase, then we re-activate the
+  // current phase so that the changes will have effect.
+  $current_phase = site_phase_machine_name_load(site_phase_get_current_phase());
+  if ($current_phase->machine_name == $phase_machine_name) {
+    site_phase_activate_phase($current_phase);
+  }
+  else {
+    $default_phase = site_phase_default_load();
+    if ($default_phase->machine_name == $phase_machine_name) {
+      site_phase_activate_phase($current_phase);
+    }
+  }
 }
 
 /**
@@ -340,6 +376,16 @@ function site_phase_copy_current_state_to_phase($phase_machine_name, $plugin_id 
   catch (Exception $e) {
     // @todo: maybe hande different types of exceptions.
     watchdog_exception('site_phase', $e);
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function site_phase_form_user_admin_permissions_alter(&$form, &$form_state, $form_id) {
+  drupal_set_message(t('The global permissions of the site are now managed in the !site_phase configuration. Please configure the default or the current site phase in order to adjust the permissions. This form can be still used but only as a view of your changes.', array('!site_phase' => l(t('Site Phase'), 'admin/config/system/site-phases'))));
+  foreach ($form['checkboxes'] as $rid => $value) {
+    $form['checkboxes'][$rid]['#disabled'] = TRUE;
   }
 }
 

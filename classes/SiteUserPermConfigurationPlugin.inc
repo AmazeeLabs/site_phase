@@ -105,14 +105,14 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
    * (non-PHPdoc)
    * @see SiteConfigurationPluginInterface::configurationForm()
    */
-  public function configurationForm(&$form, &$form_state, $configuration_area, $default_phase_configuration = NULL, $configuration = NULL) {
+  public function configurationForm(&$form, &$form_state, $phase, $configuration_area, $default_phase_configuration = NULL, $configuration = NULL) {
     switch ($configuration_area) {
       case 'available_permissions': {
-        $this->configurationAvailablePermissionsForm($form, $form_state, $default_phase_configuration, $configuration);
+        $this->configurationAvailablePermissionsForm($form, $form_state, $phase, $default_phase_configuration, $configuration);
         break;
       }
       case 'permissions': {
-        $this->configurationPermissionsForm($form, $form_state, $default_phase_configuration, $configuration);
+        $this->configurationPermissionsForm($form, $form_state, $phase, $default_phase_configuration, $configuration);
         break;
       }
     }
@@ -121,7 +121,13 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
   /**
    * Form constructor for the available permissions configuration area.
    */
-  protected function configurationAvailablePermissionsForm(&$form, &$form_state, $default_phase_configuration = NULL, $configuration = NULL) {
+  protected function configurationAvailablePermissionsForm(&$form, &$form_state, $phase, $default_phase_configuration = NULL, $configuration = NULL) {
+    // For the default phase, this form is not really usefull.
+    if ($phase->is_default) {
+      $form['not_available'] = array('#markup' => t('This configuration is not available for the default phase. It will always enable all the permissions for edit.'));
+      $form['submit']['#access'] = $form['copy_current_state']['#access'] = FALSE;
+      return;
+    }
     $modules = array();
     $module_info = system_get_info('module');
     foreach (module_implements('permission') as $module) {
@@ -151,7 +157,7 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
   /**
    * Form constructor for the permissions configuration area.
    */
-  protected function configurationPermissionsForm(&$form, &$form_state, $default_phase_configuration = NULL, $configuration = NULL) {
+  protected function configurationPermissionsForm(&$form, &$form_state, $phase, $default_phase_configuration = NULL, $configuration = NULL) {
     if (empty($configuration['permissions']) && !empty($default_phase_configuration['permissions'])) {
       $configuration['permissions'] = $default_phase_configuration['permissions'];
     }
@@ -210,7 +216,7 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
    * (non-PHPdoc)
    * @see SiteConfigurationPluginInterface::getConfigurationFromSubmission()
    */
-  public function getConfigurationFromSubmission($configuration_area, &$form, &$form_state) {
+  public function getConfigurationFromSubmission($phase, $configuration_area, &$form, &$form_state) {
     $configuration = array();
     switch ($configuration_area) {
       case 'available_permissions': {
