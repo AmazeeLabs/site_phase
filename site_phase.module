@@ -419,3 +419,25 @@ function site_phase_site_phase_configuration_plugins() {
     ),
   );
 }
+
+/**
+ * Implements hook_features_api().
+ */
+function site_phase_features_api() {
+  return array(
+    'site_phase' => array(
+      'name' => 'Site Phase',
+      'file' => drupal_get_path('module', 'site_phase') . '/site_phase.features.inc',
+      'default_hook' => 'site_phase_feature_default_settings',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'feature_source' => TRUE,
+    ),
+    'site_phase_configuration' => array(
+      'name' => 'Site Phase Configuration',
+      'file' => drupal_get_path('module', 'site_phase') . '/site_phase.features.inc',
+      'default_hook' => 'site_phase_configuration_feature_default_settings',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'feature_source' => TRUE,
+    ),
+  );
+}
