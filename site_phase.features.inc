@@ -128,4 +128,24 @@ function site_phase_configuration_features_export_render($module, $data) {
   return array('site_phase_configuration_feature_default_settings' => $code);
 }
 
-// @todo: Implement the revert and the rebuild hooks!
+/**
+ * Implements hook_features_revert().
+ */
+function site_phase_configuration_features_revert($module) {
+  site_phase_configuration_features_rebuild($module);
+}
+
+/**
+ * Implements hook_features_rebuild().
+ */
+function site_phase_configuration_features_rebuild($module) {
+  if ($defaults = features_get_default('site_phase_configuration', $module)) {
+    foreach ($defaults as $site_phase_configuration) {
+      foreach ($site_phase_configuration as $plugin_id => $areas) {
+        foreach ($areas as $configuration_area) {
+          site_phase_configuration_save($configuration_area['phase_machine_name'], $configuration_area['plugin_id'], $configuration_area['configuration_area'], $configuration_area['configuration']);
+        }
+      }
+    }
+  }
+}
