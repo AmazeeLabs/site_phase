@@ -37,7 +37,7 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
         $execute_query = FALSE;
         foreach ($configuration['available_permissions']->configuration['permissions'] as $permission_key) {
           foreach ($configuration['permissions']->configuration['permissions'] as $rid => $permissions) {
-            if (!empty($permissions[$permission_key])) {
+            if (!empty($permissions[$permission_key]) && !empty($permissions_modules[$permission_key])) {
               $query->values(array($rid, $permission_key, $permissions_modules[$permission_key]));
               $execute_query = TRUE;
             }
