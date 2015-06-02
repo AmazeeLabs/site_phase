@@ -139,7 +139,7 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
     foreach ($modules as $module => $display_name) {
       if ($permissions = module_invoke($module, 'permission')) {
         foreach ($permissions as $perm_key => $permission) {
-          $options[$module_info[$module]['name']][$perm_key] = $permission['title'];
+          $options[$module_info[$module]['name']][$perm_key] = filter_xss($permission['title'], array());
         }
       }
     }
