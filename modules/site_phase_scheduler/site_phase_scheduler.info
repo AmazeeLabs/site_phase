@@ -1,0 +1,10 @@
+name = Site Phase Scheduler
+description = A scheduler for site phases to automate the transition of them.
+core = 7.x
+dependencies[] = site_phase
+dependencies[] = date_popup
+
+files[] = classes/SitePhaseScheduler.inc
+files[] = classes/SitePhaseSchedulerBase.inc
+files[] = classes/SitePhaseSchedulerFactory.inc
+files[] = interfaces/SitePhaseSchedulerInterface.inc

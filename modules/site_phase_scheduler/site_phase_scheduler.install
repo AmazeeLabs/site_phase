@@ -1,0 +1,77 @@
+<?php
+
+/**
+ * @file
+ *  Install file for the Site Phase Scheduler module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function site_phase_scheduler_schema() {
+  $schema['site_phases_scheduler'] = array(
+    'description' => 'Stores the scheduler settings for each phase.',
+    'fields' => array(
+      'spsid' => array(
+        'description' => 'The primary identifier for a setting.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'machine_name' => array(
+        'description' => 'The machine name of the phase.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'name' => array(
+        'description' => 'The name of the setting.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'is_recurring' => array(
+        'description' => 'If this schedule is a recurring one.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'starts_on' => array(
+        'description' => 'When the phase should start.',
+        'type' => 'datetime',
+        'mysql_type' => 'datetime',
+        'pgsql_type' => 'timestamp without time zone',
+        'sqlite_type' => 'varchar',
+        'sqlsrv_type' => 'smalldatetime',
+        'not null' => TRUE,
+      ),
+      'start_pattern' => array(
+        'description' => 'The start pattern, if the scheduler is recursive.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE,
+        'default' => '',
+      ),
+      'ends_on' => array(
+        'description' => 'When the phase should end.',
+        'type' => 'datetime',
+        'mysql_type' => 'datetime',
+        'pgsql_type' => 'timestamp without time zone',
+        'sqlite_type' => 'varchar',
+        'sqlsrv_type' => 'smalldatetime',
+        'not null' => FALSE,
+      ),
+      'end_pattern' => array(
+        'description' => 'The end pattern, if the scheduler is recursive.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE,
+        'default' => '',
+      )
+    ),
+    'primary key' => array('spsid'),
+  );
+  return $schema;
+}

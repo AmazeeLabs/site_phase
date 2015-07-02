@@ -1,0 +1,70 @@
+<?php
+
+/**
+ * @file
+ *  A scheduler for site phases to automate the transition of them.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function site_phase_scheduler_menu() {
+  $items['admin/config/system/site-phases/%site_phase/schedule'] = array(
+    'type' => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
+    'title' => 'Schedule site phase',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'site_phase_scheduler_schedule_phase',
+    'page arguments' => array(4),
+    'file' => 'includes/site_phase_scheduler.admin.inc'
+  );
+  $items['admin/config/system/site-phases/%site_phase/schedule/%site_phase_scheduler/edit'] = array(
+    'type' => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
+    'title' => 'Edit site phase scheduler',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('site_phase_schedule_add_edit_form', 4, 6),
+    'file' => 'includes/site_phase_scheduler.admin.inc'
+  );
+  $items['admin/config/system/site-phases/%site_phase/schedule/%site_phase_scheduler/delete'] = array(
+    'type' => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
+    'title' => 'Delete site phase scheduler',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('site_phase_schedule_delete_confirm', 4, 6),
+    'file' => 'includes/site_phase_scheduler.admin.inc'
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function site_phase_scheduler_cron() {
+  module_load_include('inc', 'site_phase_scheduler', 'site_phase_scheduler.cron.inc');
+  _site_phase_scheduler_run_cron();
+}
+
+/**
+ * Loads a scheduler based on the id.
+ */
+function site_phase_scheduler_load($spsid) {
+  $query = db_select('site_phases_scheduler', 'sps')->fields('sps')->condition('sps.spsid', $spsid);
+  $result = $query->execute()->fetch();
+  if (!empty($result)) {
+    return SitePhaseSchedulerFactory::getScheduler((array) $result);
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function site_phase_scheduler_form_site_phase_admin_form_alter(&$form, &$form_state, $form_id) {
+  // Add and additional column with the rating form on the site phases overview
+  // table.
+  $form['#header'] = array_slice($form['#header'], 0, 3, TRUE) + array("schedule" => t('Schedule')) + array_slice($form['#header'], 3, count($form['#header']) - 1, TRUE);
+  foreach ($form['#rows'] as $spid => &$row) {
+    $row['data'] = array_slice($row['data'], 0, 3, TRUE) + array("schedule" => 'schedy') + array_slice($row['data'], 3, count($row['data']) - 1, TRUE);
+    $row['data']['actions']['data'] .= ' | ' . l(t('schedule'), 'admin/config/system/site-phases/' . $spid . '/schedule');
+  }
+}
