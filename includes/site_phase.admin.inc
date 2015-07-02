@@ -95,7 +95,7 @@ function site_phase_admin_form($form, &$form_state, $phases) {
     $row = array();
     $name = $phase->name;
     if ($phase->machine_name == $current_phase_name) {
-      $name .= ' ' . t('(Currently active)');
+      $name = '<strong>' . $name . '</strong>'  . ' ' . t('(Currently active)');
     }
     $row['name'] = array('data' => $name);
     $row['machine_name'] = array('data' => $phase->machine_name);

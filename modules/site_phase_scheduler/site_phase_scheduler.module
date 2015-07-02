@@ -40,7 +40,7 @@ function site_phase_scheduler_menu() {
  * Implements hook_cron().
  */
 function site_phase_scheduler_cron() {
-  module_load_include('inc', 'site_phase_scheduler', 'site_phase_scheduler.cron.inc');
+  module_load_include('inc', 'site_phase_scheduler', 'site_phase_scheduler.cron');
   _site_phase_scheduler_run_cron();
 }
 
@@ -64,7 +64,22 @@ function site_phase_scheduler_form_site_phase_admin_form_alter(&$form, &$form_st
   // table.
   $form['#header'] = array_slice($form['#header'], 0, 3, TRUE) + array("schedule" => t('Schedule')) + array_slice($form['#header'], 3, count($form['#header']) - 1, TRUE);
   foreach ($form['#rows'] as $spid => &$row) {
-    $row['data'] = array_slice($row['data'], 0, 3, TRUE) + array("schedule" => 'schedy') + array_slice($row['data'], 3, count($row['data']) - 1, TRUE);
+    $phase = site_phase_load($spid);
+    $schedulers = SitePhaseSchedulerUtils::loadSchedulers($phase);
+    $schedule_output = array();
+    if (!empty($schedulers)) {
+      foreach ($schedulers as $scheduler) {
+        $actions = array();
+        $actions['edit'] = l(t('edit'), 'admin/config/system/site-phases/' . $spid . '/schedule/' . $scheduler->getSpsid() . '/edit', array('query' => drupal_get_destination()));
+        $actions['delete'] = l(t('delete'), 'admin/config/system/site-phases/' . $spid . '/schedule/' . $scheduler->getSpsid() . '/delete', array('query' => drupal_get_destination()));
+        $schedule_output[] = $scheduler->__toString() . '<br/>' . implode(' | ', $actions);
+      }
+    }
+    else {
+      $schedule_output[] = t('No schedule.');
+    }
+
+    $row['data'] = array_slice($row['data'], 0, 3, TRUE) + array("schedule" => implode('<br/><br/>', $schedule_output)) + array_slice($row['data'], 3, count($row['data']) - 1, TRUE);
     $row['data']['actions']['data'] .= ' | ' . l(t('schedule'), 'admin/config/system/site-phases/' . $spid . '/schedule');
   }
 }
