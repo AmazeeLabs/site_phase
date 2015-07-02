@@ -46,8 +46,9 @@ abstract class SitePhaseSchedulerBase implements SitePhaseSchedulerInterface {
     if ($time < $start_timestamp) {
       return FALSE;
     }
-    if (!empty($this->getEndsOn())) {
-      $end_timestamp = strtotime($this->getEndsOn());
+    $ends_on = $this->getEndsOn();
+    if (!empty($ends_on)) {
+      $end_timestamp = strtotime($ends_on);
       if ($time > $end_timestamp) {
         return FALSE;
       }
