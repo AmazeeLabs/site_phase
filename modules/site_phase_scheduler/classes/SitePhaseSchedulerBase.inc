@@ -114,8 +114,9 @@ abstract class SitePhaseSchedulerBase implements SitePhaseSchedulerInterface {
   public function __toString() {
     $output = '<strong>' . $this->getName() . "</strong>\n";
     $output .= t('starts on: !date', array('!date' => $this->getStartsOn())) . "\n";
-    if (!empty($this->getEndsOn())) {
-      $output .= t('ends on: !date', array('!date' => $this->getEndsOn()));
+    $ends_ond = $this->getEndsOn();
+    if (!empty($ends_ond)) {
+      $output .= t('ends on: !date', array('!date' => $ends_ond));
     }
     return nl2br($output);
   }
