@@ -78,8 +78,8 @@ function site_phase_scheduler_form_site_phase_admin_form_alter(&$form, &$form_st
     else {
       $schedule_output[] = t('No schedule.');
     }
+    $schedule_output[] = l(t('schedule'), 'admin/config/system/site-phases/' . $spid . '/schedule');
 
     $row['data'] = array_slice($row['data'], 0, 3, TRUE) + array("schedule" => implode('<br/><br/>', $schedule_output)) + array_slice($row['data'], 3, count($row['data']) - 1, TRUE);
-    $row['data']['actions']['data'] .= ' | ' . l(t('schedule'), 'admin/config/system/site-phases/' . $spid . '/schedule');
   }
 }
