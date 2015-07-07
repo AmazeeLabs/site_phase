@@ -326,6 +326,7 @@ function site_phase_get_current_phase() {
  */
 function site_phase_activate_phase($phase) {
   try {
+    $from_phase = site_phase_machine_name_load(site_phase_get_current_phase());
     // For each available plugins, we apply the configuration of the phase.
     $plugins = site_phase_get_all_configuration_plugins();
     $default_phase = site_phase_default_load();
@@ -337,6 +338,10 @@ function site_phase_activate_phase($phase) {
         $result_configuration = $plugin_object->mergeConfiguration($default_configuration[$plugin_key], $configuration);
         $plugin_object->applyConfiguration($result_configuration);
       }
+    }
+    // Trigger a rules event.
+    if (module_exists('rules')) {
+      rules_invoke_event('site_phase_transition', $from_phase, $phase);
     }
   }
   catch (Exception $e) {
