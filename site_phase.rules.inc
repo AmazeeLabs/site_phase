@@ -7,7 +7,7 @@
 function site_phase_rules_event_info() {
   return array(
     'site_phase_transition' => array(
-      'label' => t("When the site phase is changed."),
+      'label' => t("Site Phase is changed"),
       'group' => 'Site Phase',
       'variables' => array(
         'from_phase' => array(
