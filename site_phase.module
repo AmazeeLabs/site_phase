@@ -27,6 +27,15 @@ function site_phase_entity_info() {
 }
 
 /**
+ * Implements hook_ctools_plugin_directory().
+ */
+function site_phase_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'ctools' && !empty($plugin)) {
+    return "plugins/$plugin";
+  }
+}
+
+/**
  * Implement hook_entity_property_info_alter().
  */
 function site_phase_entity_property_info_alter(&$info) {
