@@ -63,15 +63,16 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
     $result = $conf1;
     if (!empty($conf2['available_permissions']->configuration['permissions'])) {
       foreach ($conf2['available_permissions']->configuration['permissions'] as $permission_string) {
-        foreach ($conf2['permissions']->configuration['permissions'] as $rid => $permissions) {
-          if (empty($permissions[$permission_string]) && !empty($result['permissions']->configuration['permissions'][$rid][$permission_string])) {
-            unset($result['permissions']->configuration['permissions'][$rid][$permission_string]);
-          }
-          elseif (!empty($permissions[$permission_string])) {
-            $result['permissions']->configuration['permissions'][$rid][$permission_string] = $permission_string;
-            // Also, in this case, make sure the the results has the permission
-            // string in the available permissions.
-            $result['available_permissions']->configuration['permissions'][$permission_string] = $permission_string;
+        if (!empty($conf2['permissions'])) {
+          foreach ($conf2['permissions']->configuration['permissions'] as $rid => $permissions) {
+            if (empty($permissions[$permission_string]) && !empty($result['permissions']->configuration['permissions'][$rid][$permission_string])) {
+              unset($result['permissions']->configuration['permissions'][$rid][$permission_string]);
+            } elseif (!empty($permissions[$permission_string])) {
+              $result['permissions']->configuration['permissions'][$rid][$permission_string] = $permission_string;
+              // Also, in this case, make sure the the results has the permission
+              // string in the available permissions.
+              $result['available_permissions']->configuration['permissions'][$permission_string] = $permission_string;
+            }
           }
         }
       }
