@@ -352,6 +352,8 @@ function site_phase_activate_phase($phase) {
     if (module_exists('rules')) {
       rules_invoke_event('site_phase_transition', $from_phase, $phase);
     }
+    // Invoke also the site_phase_transition hook.
+    module_invoke_all('site_phase_transition', $from_phase, $phase);
   }
   catch (Exception $e) {
     // @todo: maybe hande different types of exceptions.
