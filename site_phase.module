@@ -342,11 +342,14 @@ function site_phase_activate_phase($phase) {
     $default_configuration = site_phase_configuration_load($default_phase->machine_name);
     foreach ($plugins as $plugin_key => $plugin) {
       $configuration = site_phase_configuration_load($phase->machine_name, $plugin_key);
+      $plugin_object = SiteConfigurationPluginFactory::getInstance()->getPlugin($plugin_key);
       if ($configuration !== FALSE) {
-        $plugin_object = SiteConfigurationPluginFactory::getInstance()->getPlugin($plugin_key);
         $result_configuration = $plugin_object->mergeConfiguration($default_configuration[$plugin_key], $configuration);
-        $plugin_object->applyConfiguration($result_configuration);
       }
+      else {
+        $result_configuration = $default_configuration[$plugin_key];
+      }
+      $plugin_object->applyConfiguration($result_configuration);
     }
     // Trigger a rules event.
     if (module_exists('rules')) {
