@@ -115,4 +115,7 @@ function site_phase_install() {
     'is_default' => 1
   );
   drupal_write_record('site_phases', $default_phase);
+
+  // Copy the current site state to the default phase when the phase is created.
+  site_phase_copy_current_state_to_phase('default');
 }
