@@ -159,57 +159,89 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
    * Form constructor for the permissions configuration area.
    */
   protected function configurationPermissionsForm(&$form, &$form_state, $phase, $default_phase_configuration = NULL, $configuration = NULL) {
-    if (empty($configuration['permissions']) && !empty($default_phase_configuration['permissions'])) {
-      $configuration['permissions'] = $default_phase_configuration['permissions'];
+    // If we have no 'roles' in the request, then we show a roles selection
+    // form.
+    // This is a temporary solution for when there are many roles and
+    // permissions in the system which will block the page.
+    if (empty($_GET['roles'])) {
+      $form['roles'] = array(
+        '#type' => 'select',
+        '#title' => t('Roles'),
+        '#multiple' => TRUE,
+        '#options' => array('all' => t('All')) + user_roles(),
+        '#size' => 10,
+        '#required' => TRUE,
+      );
+      $form['next'] = array(
+        '#type' => 'submit',
+        '#value' => t('Next'),
+      );
+      unset($form['copy_current_state'], $form['submit']);
     }
-    module_load_include('inc', 'user', 'user.admin');
-    $form = user_admin_permissions($form, $form_state);
-
-    unset($form['actions']);
-    $form['#theme'] = 'user_admin_permissions';
-
-    // Remove the permissions which are not available for editing.
-    $previous_numeric = NULL;
-    $all_removed = TRUE;
-    foreach ($form['permission'] as $perm_key => $permission) {
-      if (is_numeric($perm_key)) {
-        // If we removed all the entries from the previous numeric key, then we
-        // remove also the numeric key.
-        if (isset($previous_numeric) && !empty($all_removed)) {
-          unset($form['permission'][$previous_numeric]);
+    else {
+      if (empty($configuration['permissions']) && !empty($default_phase_configuration['permissions'])) {
+        $configuration['permissions'] = $default_phase_configuration['permissions'];
+      }
+      module_load_include('inc', 'user', 'user.admin');
+      $form = user_admin_permissions($form, $form_state);
+      // The user_admin_permissions can return the form for either all of the
+      // roles, or only for one single role. We think it is really better to
+      // have the possibility to edit multiple roles, so we get all of them and
+      // afterwards we unset the checkboxes for the ones we do not need.
+      if (empty($_GET['roles']['all'])) {
+        foreach (user_roles() as $rid => $role_name) {
+          if (empty($_GET['roles'][$rid])) {
+            unset($form['checkboxes'][$rid], $form['role_names'][$rid], $form['role_names']['#value'][$rid]);
+          }
         }
-        $previous_numeric = $perm_key;
-        $all_removed = TRUE;
-        continue;
       }
-      if (empty($configuration['available_permissions']->configuration['permissions'][$perm_key])) {
-        unset($form['permission'][$perm_key]);
-        foreach ($form['checkboxes'] as $rid => &$chekbox) {
-          unset($form['checkboxes'][$rid]['#options'][$perm_key]);
+
+      unset($form['actions']);
+      $form['#theme'] = 'user_admin_permissions';
+
+      // Remove the permissions which are not available for editing.
+      $previous_numeric = NULL;
+      $all_removed = TRUE;
+      foreach ($form['permission'] as $perm_key => $permission) {
+        if (is_numeric($perm_key)) {
+          // If we removed all the entries from the previous numeric key, then we
+          // remove also the numeric key.
+          if (isset($previous_numeric) && !empty($all_removed)) {
+            unset($form['permission'][$previous_numeric]);
+          }
+          $previous_numeric = $perm_key;
+          $all_removed = TRUE;
+          continue;
+        }
+        if (empty($configuration['available_permissions']->configuration['permissions'][$perm_key])) {
+          unset($form['permission'][$perm_key]);
+          foreach ($form['checkboxes'] as $rid => &$chekbox) {
+            unset($form['checkboxes'][$rid]['#options'][$perm_key]);
+          }
+        }
+        else {
+          $all_removed = FALSE;
         }
       }
-      else {
-        $all_removed = FALSE;
+      // At the end, we may have a special case, when the last module should also
+      // be removed.
+      if (!empty($form['permission'])) {
+        end($form['permission']);
+        $last_key = key($form['permission']);
+        if (is_numeric($last_key)) {
+          unset($form['permission'][$last_key]);
+        }
       }
-    }
-    // At the end, we may have a special case, when the last module should also
-    // be removed.
-    if (!empty($form['permission'])) {
-      end($form['permission']);
-      $last_key = key($form['permission']);
-      if (is_numeric($last_key)) {
-        unset($form['permission'][$last_key]);
-      }
-    }
 
-    // Set the default value according to the data from the configuration.
-    foreach ($form['checkboxes'] as $rid => &$chekbox) {
-      // If we have absolutely no information for a role in the configuration,
-      // then we can just skip it.
-      if (!isset($configuration['permissions']->configuration['permissions'][$rid])) {
-        continue;
+      // Set the default value according to the data from the configuration.
+      foreach ($form['checkboxes'] as $rid => &$chekbox) {
+        // If we have absolutely no information for a role in the configuration,
+        // then we can just skip it.
+        if (!isset($configuration['permissions']->configuration['permissions'][$rid])) {
+          continue;
+        }
+        $form['checkboxes'][$rid]['#default_value'] = $configuration['permissions']->configuration['permissions'][$rid];
       }
-      $form['checkboxes'][$rid]['#default_value'] = $configuration['permissions']->configuration['permissions'][$rid];
     }
   }
 
@@ -225,8 +257,25 @@ class SiteUserPermConfigurationPlugin extends SiteConfigurationBasePlugin {
         break;
       }
       case 'permissions': {
-        foreach ($form_state['values']['role_names'] as $rid => $name) {
-          $configuration['permissions'][$rid] = array_filter($form_state['values'][$rid]);
+        // If we submitted the roles, then just redirect to the same page but
+        // with the roles parameter in the request.
+        if (!empty($form_state['values']['roles'])) {
+          $query = drupal_get_query_parameters();
+          $query['roles'] = $form_state['values']['roles'];
+          return array('redirect' => array($_GET['q'], array('query' => $query)));
+        }
+        $current_phase_configuration = site_phase_configuration_load($phase->machine_name, $this->getId(), $configuration_area);
+        foreach (user_roles() as $rid => $name) {
+          // If we submitted the permissions for this role, we use them,
+          // otherwise we will use the current configuration of the phase. If we
+          // do not do that, the configuration for the roles which were not on
+          // the form will be lost.
+          if (isset($form_state['values']['role_names'][$rid])) {
+            $configuration['permissions'][$rid] = array_filter($form_state['values'][$rid]);
+          }
+          else {
+            $configuration['permissions'][$rid] = $current_phase_configuration->configuration[$configuration_area][$rid];
+          }
         }
         break;
       }

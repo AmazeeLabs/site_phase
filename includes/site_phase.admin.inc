@@ -326,8 +326,17 @@ function site_phase_plugin_configure_form_submit(&$form, &$form_state) {
   $plugin = site_phase_plugin_load($form_state['values']['plugin']);
   $phase = site_phase_machine_name_load($form_state['values']['phase']);
   $plugin_state = $plugin->getConfigurationFromSubmission($phase, $form_state['values']['configuration_area'], $form, $form_state);
-  site_phase_configuration_save($form_state['values']['phase'], $form_state['values']['plugin'], $form_state['values']['configuration_area'], $plugin_state);
-  drupal_set_message(t('The configurations have been saved.'));
+  // Sometimes we only want to redirect the user.
+  // @todo: find a better solution for this.
+  if (is_array($plugin_state) && !empty($plugin_state['redirect'])) {
+    // We do not want to go to a destination, so unset it here.
+    unset($_GET['destination']);
+    $form_state['redirect'] = $plugin_state['redirect'];
+  }
+  else {
+    site_phase_configuration_save($form_state['values']['phase'], $form_state['values']['plugin'], $form_state['values']['configuration_area'], $plugin_state);
+    drupal_set_message(t('The configurations have been saved.'));
+  }
 }
 
 /**
