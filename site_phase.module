@@ -402,9 +402,43 @@ function site_phase_copy_current_state_to_phase($phase_machine_name, $plugin_id 
  * Implements hook_form_FORM_ID_alter().
  */
 function site_phase_form_user_admin_permissions_alter(&$form, &$form_state, $form_id) {
-  drupal_set_message(t('The global permissions of the site are now managed in the !site_phase configuration. Please configure the default or the current site phase in order to adjust the permissions. This form can be still used but only as a view of your changes.', array('!site_phase' => l(t('Site Phase'), 'admin/config/system/site-phases'))));
+  drupal_set_message(t('The global permissions of the site are now managed in the !site_phase configuration. Please configure the default or the current site phase in order to adjust the permissions. This form can still be used but only as a view of your changes.', array('!site_phase' => l(t('Site Phase'), 'admin/config/system/site-phases'))));
   foreach ($form['checkboxes'] as $rid => $value) {
     $form['checkboxes'][$rid]['#disabled'] = TRUE;
+  }
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function site_phase_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'form_alter') {
+    // Because of the field permissions module, we have to move the alter hook
+    // at the end so that it can alter the elements coming from that module.
+    // One other possibility would be to use a pre_render hook for the form.
+    $group = $implementations['site_phase'];
+    unset($implementations['site_phase']);
+    $implementations['site_phase'] = $group;
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for the field edit form.
+ */
+function site_phase_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id) {
+  // When the site phase module is enabled, and the field permissions module
+  // too, then we don't want the user to change any permissions here, because
+  // they will afterwards be overwritten when the site phases are changed back
+  // and forth. The idea is to always do the configuration directly in the site
+  // phase.
+  if (!empty($form['field_permissions'])) {
+    foreach ($form['field_permissions']['permissions']['checkboxes'] as $key => $field) {
+      $form['field_permissions']['permissions']['checkboxes'][$key]['#disabled'] = TRUE;
+    }
+    $form['field_permissions']['permissions']['explanation'] = array(
+      '#type' => 'item',
+      '#markup' => t('The global permissions of the site are now managed in the !site_phase configuration. Please configure the default or the current site phase in order to adjust the permissions. This form can still be used but only as a view of your changes.', array('!site_phase' => l(t('Site Phase'), 'admin/config/system/site-phases'))),
+    );
   }
 }
 
