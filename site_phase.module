@@ -422,6 +422,16 @@ function site_phase_site_phase_configuration_plugins() {
         ),
       ),
     ),
+    'user_account_settings' => array(
+      'class' => 'UserAccountSettingsConfigurationPlugin',
+      'title' => 'User account settings',
+      'description' => 'Configuration plugin for the current user account settings on the site.',
+      'configuration_areas' => array(
+        'account_settings' => array(
+          'title' => t('Settings'),
+        ),
+      ),
+    ),
   );
 }
 

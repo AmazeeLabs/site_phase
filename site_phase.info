@@ -5,4 +5,5 @@ core = 7.x
 files[] = interfaces/SiteConfigurationPluginInterface.inc
 files[] = classes/SiteConfigurationPluginFactory.inc
 files[] = classes/SiteUserPermConfigurationPlugin.inc
+files[] = classes/UserAccountSettingsConfigurationPlugin.inc
 files[] = classes/SiteConfigurationBasePlugin.inc

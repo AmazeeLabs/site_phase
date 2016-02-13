@@ -116,3 +116,26 @@ function site_phase_install() {
   );
   drupal_write_record('site_phases', $default_phase);
 }
+
+/**
+ * Save empty data for the newly added "user_account_settings" plugin.
+ */
+function site_phase_update_7100() {
+  foreach (site_phase_get_all_phases() as $site_phase) {
+    $options[$site_phase->machine_name] = $site_phase->name;
+    // We can't use site_phase_configuration_save() during the update, and we
+    // actually not't need to re-activate current/default phase because we add
+    // empty values. Only update data in the database.
+    $phase_machine_name = $site_phase->machine_name;
+    $plugin_id = 'user_account_settings';
+    $configuration_area = 'account_settings';
+    $configuration = array(
+      'account_settings' => array(
+        'user_register' => NULL,
+      ),
+    );
+    db_delete('site_phases_configuration')->condition('phase_machine_name', $phase_machine_name)->condition('plugin_id', $plugin_id)->condition('configuration_area', $configuration_area)->execute();
+    $configuration_object = (object) array('phase_machine_name' => $phase_machine_name, 'plugin_id' => $plugin_id, 'configuration_area' => $configuration_area, 'configuration' => $configuration);
+    drupal_write_record('site_phases_configuration', $configuration_object);
+  }
+}
